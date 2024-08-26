@@ -11,13 +11,14 @@ import org.gradle.language.cpp.ProductionCppComponent;
 import org.gradle.language.nativeplatform.ComponentWithLinkFile;
 import org.gradle.language.nativeplatform.ComponentWithLinkUsage;
 import org.gradle.language.nativeplatform.ComponentWithRuntimeUsage;
+import org.gradle.nativeplatform.tasks.AbstractLinkTask;
 import org.gradle.nativeplatform.test.cpp.CppTestExecutable;
 
 import javax.inject.Inject;
 
 public abstract /*final*/ class PartialDebugExtension {
     private enum DebugType {
-        DEFAULT, FULL
+        DEFAULT, FULL, UNSTRIPPED
     }
 
     public PartialDebugExtension() {
@@ -29,11 +30,24 @@ public abstract /*final*/ class PartialDebugExtension {
         return this;
     }
 
+    public PartialDebugExtension unstrippedRelease() {
+        getDebugType().set(DebugType.UNSTRIPPED);
+        return this;
+    }
+
     protected abstract Property<DebugType> getDebugType();
 
     private <T extends CppBinary> Action<T> selected(Action<? super T> action) {
         return binary -> {
             if (getDebugType().getOrElse(DebugType.DEFAULT).equals(DebugType.FULL)) {
+                action.execute(binary);
+            }
+        };
+    }
+
+    private <T extends CppBinary> Action<T> unstripped(Action<? super T> action) {
+        return binary -> {
+            if (getDebugType().getOrElse(DebugType.DEFAULT).equals(DebugType.UNSTRIPPED)) {
                 action.execute(binary);
             }
         };
@@ -48,6 +62,31 @@ public abstract /*final*/ class PartialDebugExtension {
             PartialDebugExtension extension = project.getExtensions().create("partialDebug", PartialDebugExtension.class);
 
             project.getComponents().withType(ProductionCppComponent.class).configureEach(component -> {
+                component.getBinaries().whenElementFinalized(ofReleaseVariant(extension.unstripped(binary -> {
+                    if (binary instanceof ComponentWithLinkUsage) {
+                        project.getConfigurations().named(qualifyingName(binary) + "LinkElements").configure(configuration -> {
+                            configuration.outgoing(outgoing -> {
+                                if (binary instanceof CppSharedLibrary) {
+                                    outgoing.getArtifacts().clear();
+                                    outgoing.artifact(((CppSharedLibrary) binary).getLinkTask().flatMap(it -> it.getImportLibrary().orElse(it.getLinkedFile())));
+                                }
+                            });
+                        });
+                    }
+                    if (binary instanceof ComponentWithRuntimeUsage) {
+                        project.getConfigurations().named(qualifyingName(binary) + "RuntimeElements").configure(configuration -> {
+                            configuration.outgoing(outgoing -> {
+                                outgoing.getArtifacts().clear();
+                                if (binary instanceof CppExecutable) {
+                                    outgoing.artifact(((CppExecutable) binary).getLinkTask().flatMap(AbstractLinkTask::getLinkedFile));
+                                } else if (binary instanceof CppSharedLibrary) {
+                                    outgoing.artifact(((CppSharedLibrary) binary).getLinkTask().flatMap(AbstractLinkTask::getLinkedFile));
+                                }
+                            });
+                        });
+                    }
+                })));
+
                 component.getBinaries().whenElementFinalized(ofDebugVariant(extension.selected(binary -> {
                     project.getConfigurations().named("cppCompile" + capitalize(qualifyingName(binary))).configure(toResolveReleaseVariant());
                     project.getConfigurations().named("nativeLink" + capitalize(qualifyingName(binary))).configure(toResolveReleaseVariant());
