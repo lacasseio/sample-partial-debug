@@ -1,8 +1,10 @@
 plugins {
     id 'cpp-library'
-    id 'com.example.partial-debug'
+    id 'com.example.unstripped-release'
 }
 
-partialDebug {
-    unstrippedRelease()
+library {
+    binaries.getByName('mainRelease').configure {
+        it.exportAs.unstripped()
+    }
 }

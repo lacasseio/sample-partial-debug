@@ -8,5 +8,9 @@ gradlePlugin {
             id = 'com.example.partial-debug'
             implementationClass = 'com.example.partialdebug.PartialDebugExtension$Plugin'
         }
+        unstrippedExport {
+            id = 'com.example.unstripped-release'
+            implementationClass = 'com.example.partialdebug.ExportAsExtension$Plugin'
+        }
     }
 }
