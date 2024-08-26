@@ -1,0 +1,16 @@
+plugins {
+    id 'cpp-library'
+    id 'com.example.partial-debug'
+}
+
+library {
+    linkage = [Linkage.STATIC]
+
+    dependencies {
+        implementation project(':lib2')
+    }
+}
+
+partialDebug {
+    fullDebug()
+}

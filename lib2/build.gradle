@@ -1,0 +1,4 @@
+plugins {
+    id 'cpp-library'
+    id 'com.example.partial-debug'
+}

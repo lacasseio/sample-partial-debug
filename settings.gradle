@@ -1,0 +1,8 @@
+pluginManagement {
+    includeBuild 'partial-debug-plugin'
+}
+
+rootProject.name = 'sample-partial-debug'
+include('app')
+include 'lib'
+include 'lib2'

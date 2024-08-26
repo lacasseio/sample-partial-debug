@@ -1,0 +1,12 @@
+plugins {
+    id 'java-gradle-plugin'
+}
+
+gradlePlugin {
+    plugins {
+        partialDebug {
+            id = 'com.example.partial-debug'
+            implementationClass = 'com.example.partialdebug.PartialDebugExtension$Plugin'
+        }
+    }
+}
