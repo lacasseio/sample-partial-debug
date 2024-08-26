@@ -2,52 +2,28 @@ package com.example.partialdebug;
 
 import org.gradle.api.Action;
 import org.gradle.api.Project;
-import org.gradle.api.artifacts.ConfigurationContainer;
 import org.gradle.api.plugins.ExtensionAware;
+import org.gradle.api.provider.Property;
+import org.gradle.api.provider.Provider;
 import org.gradle.language.cpp.CppBinary;
-import org.gradle.language.cpp.CppExecutable;
-import org.gradle.language.cpp.CppSharedLibrary;
 import org.gradle.language.cpp.ProductionCppComponent;
-import org.gradle.language.nativeplatform.ComponentWithLinkUsage;
-import org.gradle.language.nativeplatform.ComponentWithRuntimeUsage;
-import org.gradle.nativeplatform.tasks.AbstractLinkTask;
-import org.gradle.nativeplatform.test.cpp.CppTestExecutable;
 
 import javax.inject.Inject;
 
 public abstract /*final*/ class ExportAsExtension {
-    private final ConfigurationContainer configurations;
-    private final CppBinary binary;
-
     @Inject
-    public ExportAsExtension(ConfigurationContainer configurations, CppBinary binary) {
-        this.configurations = configurations;
-        this.binary = binary;
+    public ExportAsExtension() {
+        getType().finalizeValueOnRead();
     }
 
-    public ExportAsExtension unstripped() {
-        if (binary instanceof ComponentWithLinkUsage) {
-            configurations.named(qualifyingName(binary) + "LinkElements").configure(configuration -> {
-                configuration.outgoing(outgoing -> {
-                    if (binary instanceof CppSharedLibrary) {
-                        outgoing.getArtifacts().clear();
-                        outgoing.artifact(((CppSharedLibrary) binary).getLinkTask().flatMap(it -> it.getImportLibrary().orElse(it.getLinkedFile())));
-                    }
-                });
-            });
-        }
-        if (binary instanceof ComponentWithRuntimeUsage) {
-            configurations.named(qualifyingName(binary) + "RuntimeElements").configure(configuration -> {
-                configuration.outgoing(outgoing -> {
-                    outgoing.getArtifacts().clear();
-                    if (binary instanceof CppExecutable) {
-                        outgoing.artifact(((CppExecutable) binary).getLinkTask().flatMap(AbstractLinkTask::getLinkedFile));
-                    } else if (binary instanceof CppSharedLibrary) {
-                        outgoing.artifact(((CppSharedLibrary) binary).getLinkTask().flatMap(AbstractLinkTask::getLinkedFile));
-                    }
-                });
-            });
-        }
+    public static abstract class ExportType {
+        protected abstract void execute();
+    }
+
+    protected abstract Property<ExportType> getType();
+
+    public ExportAsExtension as(ExportType exportType) {
+        getType().set(exportType);
         return this;
     }
 
@@ -59,9 +35,19 @@ public abstract /*final*/ class ExportAsExtension {
         public void apply(Project project) {
             project.getComponents().withType(ProductionCppComponent.class).configureEach(component -> {
                 component.getBinaries().whenElementKnown(ofReleaseVariant(binary -> {
-                    ((ExtensionAware) binary).getExtensions().create("exportAs", ExportAsExtension.class, binary);
+                    ((ExtensionAware) binary).getExtensions().create("export", ExportAsExtension.class);
+                }));
+                component.getBinaries().whenElementFinalized(ofReleaseVariant(binary -> {
+                    ifPresent(((ExtensionAware) binary).getExtensions().getByType(ExportAsExtension.class).getType(), ExportType::execute);
                 }));
             });
+        }
+
+        private static <T> void ifPresent(Provider<T> self, Action<? super T> action) {
+            final T value = self.getOrNull();
+            if (value != null) {
+                action.execute(value);
+            }
         }
 
         private static <T extends CppBinary> Action<T> ofReleaseVariant(Action<? super T> action) {
@@ -72,25 +58,4 @@ public abstract /*final*/ class ExportAsExtension {
             };
         }
     }
-
-    //region Names
-    private static String qualifyingName(CppBinary binary) {
-        // The binary name follow the pattern <componentName><variantName>[Executable]
-        String result = binary.getName();
-        if (result.startsWith("main")) {
-            result = result.substring("main".length());
-        }
-
-        // CppTestExecutable
-        if (binary instanceof CppTestExecutable) {
-            result = result.substring(0, binary.getName().length() - "Executable".length());
-        }
-
-        return uncapitalize(result);
-    }
-
-    private static String uncapitalize(String s) {
-        return Character.toLowerCase(s.charAt(0)) + s.substring(1);
-    }
-    //endregion
 }

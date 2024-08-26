@@ -1,7 +1,9 @@
 plugins {
     id 'cpp-library'
-    id 'com.example.partial-debug'
+    id 'com.example.export-as'
 }
+
+import com.example.partialdebug.DebugVariantExportType
 
 library {
     linkage = [Linkage.STATIC]
@@ -9,8 +11,8 @@ library {
     dependencies {
         implementation project(':lib2')
     }
-}
 
-partialDebug {
-    fullDebug()
+    binaries.getByName("mainRelease").configure {
+        it.export.as(project.objects.newInstance(DebugVariantExportType, library, it))
+    }
 }

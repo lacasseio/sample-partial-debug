@@ -12,8 +12,6 @@ plugins {
 
     // Apply the cpp-unit-test plugin to add support for building and running C++ test executables
     id 'cpp-unit-test'
-
-    id 'com.example.partial-debug'
 }
 
 // Set the target operating system and architecture for this application
@@ -25,8 +23,4 @@ application {
     dependencies {
         implementation project(':lib')
     }
-}
-
-partialDebug {
-//    fullDebug()
 }

@@ -1,0 +1,12 @@
+plugins {
+    id 'cpp-library'
+    id 'com.example.export-as'
+}
+
+import com.example.partialdebug.PartialDebugExportType
+
+library {
+    binaries.getByName('mainRelease').configure {
+        it.export.as(project.objects.newInstance(PartialDebugExportType, it, [project.file('src/main/cpp/dbg.cpp')] as Set))
+    }
+}

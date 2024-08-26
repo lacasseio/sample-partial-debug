@@ -9,7 +9,7 @@ gradlePlugin {
             implementationClass = 'com.example.partialdebug.PartialDebugExtension$Plugin'
         }
         unstrippedExport {
-            id = 'com.example.unstripped-release'
+            id = 'com.example.export-as'
             implementationClass = 'com.example.partialdebug.ExportAsExtension$Plugin'
         }
     }
